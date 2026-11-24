@@ -5,4 +5,4 @@ v0.2.0: GeckoView (Firefox) is the default engine; Android WebView remains selec
 
 In game: Start + Select opens the launcher menu, Select cycles mouse modes. Export diagnostics via the menu. No game assets are bundled. Browser data is stored separately for each engine. The build is experimental and device compatibility is unverified.
 
-Build: JDK 17, Android SDK 36, Gradle 8.11.1. CI resolves the stable GeckoView version from Mozilla Maven, records it in the log and builds the APK. Releases are debug-signed; Android may require uninstalling an earlier build if its signing key differs.
+Build: JDK 17, Android SDK 37, Android Gradle Plugin 9.1.1, Gradle 9.3.1. GeckoView is pinned to 160.0.20261116130455 for repeatable builds. Releases are debug-signed; Android may require uninstalling an earlier build if its signing key differs.

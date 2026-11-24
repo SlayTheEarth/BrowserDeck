@@ -28,24 +28,16 @@ jobs:
           echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
           "$SDKMANAGER" --version
-          if [[ ! -f "$SDK_ROOT/platforms/android-36/android.jar" || ! -x "$SDK_ROOT/build-tools/36.0.0/aapt2" ]]; then
-            "$SDKMANAGER" --sdk_root="$SDK_ROOT" 'platforms;android-36' 'build-tools;36.0.0'
+          if [[ ! -f "$SDK_ROOT/platforms/android-37/android.jar" || ! -x "$SDK_ROOT/build-tools/36.0.0/aapt2" ]]; then
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" 'platforms;android-37' 'build-tools;36.0.0'
           fi
-          test -f "$SDK_ROOT/platforms/android-36/android.jar"
+          test -f "$SDK_ROOT/platforms/android-37/android.jar"
           test -x "$SDK_ROOT/build-tools/36.0.0/aapt2"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11.1'
-      - name: Resolve stable GeckoView version
-        shell: bash
-        run: |
-          curl -fsSL --retry 3 https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml -o /tmp/gecko-metadata.xml
-          VERSION=$(python3 -c 'import xml.etree.ElementTree as E,re; v=[x.text for x in E.parse("/tmp/gecko-metadata.xml").findall("./versioning/versions/version") if x.text and re.fullmatch(r"\d+\.\d+\.\d{14}",x.text)]; print(max(v,key=lambda s:tuple(map(int,s.split(".")))))')
-          test -n "$VERSION"
-          echo "GECKO_VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Selected GeckoView $VERSION"
+          gradle-version: '9.3.1'
       - name: Compile debug APK
-        run: gradle --no-daemon :app:assembleDebug -PgeckoVersion="$GECKO_VERSION"
+        run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
           mkdir -p dist
