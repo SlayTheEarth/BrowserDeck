@@ -1,17 +1,49 @@
 name: Build debug APK
-on: [workflow_dispatch, push]
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
-  contents: read
+  contents: write
+concurrency:
+  group: browserdeck-build-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: {distribution: temurin, java-version: '17'}
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: |
+          sdkmanager --version
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
-        with: {gradle-version: '8.9'}
-      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - run: gradle --no-daemon :app:assembleDebug
+        with:
+          gradle-version: '8.9'
+      - name: Compile debug APK
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Prepare APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/BrowserDeck-v0.1.0-debug.apk
       - uses: actions/upload-artifact@v4
-        with: {name: BrowserDeck-v0.1-debug, path: app/build/outputs/apk/debug/app-debug.apk}
+        with:
+          name: BrowserDeck-v0.1-debug
+          path: dist/BrowserDeck-v0.1.0-debug.apk
+          if-no-files-found: error
+      - name: Publish first test release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.1.0 already exists; not replacing the published APK."
+          else
+            gh release create v0.1.0 dist/BrowserDeck-v0.1.0-debug.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "BrowserDeck v0.1.0" --prerelease --notes "First experimental Android handheld build. Big Ice profile, controller mapping and diagnostic export. Hardware compatibility untested."
+          fi
