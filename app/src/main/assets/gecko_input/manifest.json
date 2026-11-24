@@ -1,0 +1,40 @@
+{
+  "manifest_version": 2,
+  "name": "BrowserDeck input bridge",
+  "version": "0.2.0",
+  "description": "Local controller event translation; no external data transfer.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "input@browserdeck.local",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": [
+    "nativeMessaging",
+    "nativeMessagingFromContent",
+    "geckoViewAddons"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN",
+      "js": [
+        "main.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "js": [
+        "relay.js"
+      ]
+    }
+  ]
+}

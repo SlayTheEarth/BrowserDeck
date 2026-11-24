@@ -4,6 +4,7 @@
   const tag = 'browserdeck-input-v1';
   let cfg = {desktop:true, fakeLock:true}, locked = null, state = {keys:[], mouse:[], x:0,y:0, mode:'auto', speed:850, invert:false};
   let remainderX=0,remainderY=0;
+  const originalLock = new Map(); let shimInstalled=false;
   let held = new Set(), buttons = new Set(), child = null, px = innerWidth/2, py = innerHeight/2, last = performance.now(), cursor = null;
   const log = (...v) => console.info('[BrowserDeck]', ...v);
   function install(config) {
@@ -13,7 +14,10 @@
         try { Object.defineProperty(navigator,p,{get:()=>v,configurable:true}); } catch(e) { log(p,e.message); }
       }
     }
-    if (cfg.fakeLock) {
+    if (!cfg.fakeLock && shimInstalled) { for(const [obj,descs] of originalLock) for(const [name,d] of descs) try { if(d)Object.defineProperty(obj,name,d); else delete obj[name]; } catch(e){} locked=null;shimInstalled=false; }
+    if (cfg.fakeLock && !shimInstalled) {
+      for (const [obj,names] of [[Document.prototype,['pointerLockElement','webkitPointerLockElement','mozPointerLockElement','exitPointerLock','webkitExitPointerLock','mozExitPointerLock']],[Element.prototype,['requestPointerLock','webkitRequestPointerLock','mozRequestPointerLock']]]) if(!originalLock.has(obj)) originalLock.set(obj,names.map(n=>[n,Object.getOwnPropertyDescriptor(obj,n)]));
+      shimInstalled=true;
       function request() { locked = this; document.dispatchEvent(new Event('pointerlockchange')); return Promise.resolve(); }
       function exit() { if (locked) { locked=null; document.dispatchEvent(new Event('pointerlockchange')); } }
       for (const p of ['pointerLockElement','webkitPointerLockElement','mozPointerLockElement']) {
@@ -77,6 +81,7 @@
   function zero(){return {keys:[],mouse:[],x:0,y:0};}
   function release(){remainderX=remainderY=0;if(child){try{child.postMessage({tag,state:zero()},'*');}catch(e){}child=null;}apply(zero(),true);}
   function route(s) {
+    if(typeof s.fakeLock==='boolean' && s.fakeLock!==cfg.fakeLock)install({fakeLock:s.fakeLock});
     state=Object.assign({},state,s);
     const next=gameFrame();
     if(next!==child){const saved={...state};release();state=saved;child=next;}
@@ -105,7 +110,7 @@
   window.__browserDeck={input:route,release,probe:async()=>{
     let gpu='not exposed';if(navigator.gpu)try{gpu=(await navigator.gpu.requestAdapter())?'adapter available':'adapter unavailable';}catch(e){gpu=String(e);}
     let gl='unavailable';try{gl=document.createElement('canvas').getContext('webgl2')?'available':'unavailable';}catch(e){}
-    log('probe',JSON.stringify({gpu,webgl2:gl,lock:!!document.pointerLockElement,shim:cfg.fakeLock,canvas:document.querySelectorAll('canvas').length,frames:document.querySelectorAll('iframe').length,ua:navigator.userAgent}));
+    let sharedWasm=false;try{const m=new WebAssembly.Memory({initial:1,maximum:1,shared:true});sharedWasm=typeof SharedArrayBuffer==='function'&&m.buffer instanceof SharedArrayBuffer;}catch(e){} log('probe',JSON.stringify({crossOriginIsolated:window.crossOriginIsolated,sharedArrayBuffer:typeof SharedArrayBuffer,sharedWasm,gpu,webgl2:gl,lock:!!document.pointerLockElement,shim:cfg.fakeLock,canvas:document.querySelectorAll('canvas').length,frames:document.querySelectorAll('iframe').length,ua:navigator.userAgent}));
   }};
   requestAnimationFrame(tick);log('input ready',window===window.top?'top':'frame');
 })();

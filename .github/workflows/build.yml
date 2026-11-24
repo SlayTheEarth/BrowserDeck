@@ -28,32 +28,40 @@ jobs:
           echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
           "$SDKMANAGER" --version
-          if [[ ! -f "$SDK_ROOT/platforms/android-35/android.jar" || ! -x "$SDK_ROOT/build-tools/35.0.0/aapt2" ]]; then
-            "$SDKMANAGER" --sdk_root="$SDK_ROOT" 'platforms;android-35' 'build-tools;35.0.0'
+          if [[ ! -f "$SDK_ROOT/platforms/android-36/android.jar" || ! -x "$SDK_ROOT/build-tools/36.0.0/aapt2" ]]; then
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" 'platforms;android-36' 'build-tools;36.0.0'
           fi
-          test -f "$SDK_ROOT/platforms/android-35/android.jar"
-          test -x "$SDK_ROOT/build-tools/35.0.0/aapt2"
+          test -f "$SDK_ROOT/platforms/android-36/android.jar"
+          test -x "$SDK_ROOT/build-tools/36.0.0/aapt2"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
+      - name: Resolve stable GeckoView version
+        shell: bash
+        run: |
+          curl -fsSL --retry 3 https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml -o /tmp/gecko-metadata.xml
+          VERSION=$(python3 -c 'import xml.etree.ElementTree as E,re; v=[x.text for x in E.parse("/tmp/gecko-metadata.xml").findall("./versioning/versions/version") if x.text and re.fullmatch(r"\d+\.\d+\.\d{14}",x.text)]; print(max(v,key=lambda s:tuple(map(int,s.split(".")))))')
+          test -n "$VERSION"
+          echo "GECKO_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Selected GeckoView $VERSION"
       - name: Compile debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug -PgeckoVersion="$GECKO_VERSION"
       - name: Prepare APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/BrowserDeck-v0.1.0-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/BrowserDeck-v0.2.0-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: BrowserDeck-v0.1-debug
-          path: dist/BrowserDeck-v0.1.0-debug.apk
+          name: BrowserDeck-v0.2-debug
+          path: dist/BrowserDeck-v0.2.0-debug.apk
           if-no-files-found: error
-      - name: Publish first test release
+      - name: Publish test release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v0.1.0 already exists; not replacing the published APK."
+          if gh release view v0.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.2.0 already exists; not replacing the published APK."
           else
-            gh release create v0.1.0 dist/BrowserDeck-v0.1.0-debug.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "BrowserDeck v0.1.0" --prerelease --notes "First experimental Android handheld build. Big Ice profile, controller mapping and diagnostic export. Hardware compatibility untested."
+            gh release create v0.2.0 dist/BrowserDeck-v0.2.0-debug.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "BrowserDeck v0.2.0" --prerelease --notes "Experimental GeckoView browser engine, selectable WebView fallback, shared-memory diagnostics and existing controller profiles. Hardware compatibility untested."
           fi
